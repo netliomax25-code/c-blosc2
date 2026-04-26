@@ -3,14 +3,9 @@
 #include <string.h>
 #include <blosc2.h>
 
-/*
- * Test for dictionary-enabled compression with insufficient output buffer.
- * This reproduces the OOB write vulnerability (CVE-pending) where blosc2_compress_ctx
- * would write dictionary metadata and data beyond the destination buffer bounds when
- * dict_training is enabled and destsize is very small.
- *
- * Expected behavior: safe return with error code (BLOSC2_ERROR_WRITE_BUFFER or 0 for non-compressible).
- * Before fix: ASAN heap-buffer-overflow on memcpy/pointer write.
+/* Test for dictionary-enabled compression with insufficient output buffer.
+ * Reproduces an OOB write that occurred when dict_training is enabled and
+ * destsize is too small.
  */
 
 int main(void) {
@@ -59,7 +54,7 @@ int main(void) {
             fprintf(stdout, "Test %d (destsize=%d): PASS (rc=%d)\n", t, destsize, rc);
             pass_count++;
         } else {
-            fprintf(stdout, "Test %d (destsize=%d): FAIL (rc=%d, exceeds destsize)\n", t, destsize, rc);
+            fprintf(stdout, "Test %d (destsize=%d): FAIL (rc=%d)\n", t, destsize, rc);
         }
 
         blosc2_free_ctx(ctx);
