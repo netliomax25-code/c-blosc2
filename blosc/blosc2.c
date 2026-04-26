@@ -1295,6 +1295,10 @@ static int blosc_c(struct thread_context* thread_context, int32_t bsize,
     if (dict_training) {
       // We are in the build dict state, so don't compress
       // TODO: copy only a percentage for sampling
+      /* maxout represents remaining space in destination buffer */
+      if (neblock > maxout) {
+        return BLOSC2_ERROR_WRITE_BUFFER;  /* insufficient output buffer */
+      }
       memcpy(dest, _src + j * neblock, (unsigned int)neblock);
       cbytes = (int32_t)neblock;
     }
@@ -3130,6 +3134,15 @@ int blosc2_compress_ctx(blosc2_context* context, const void* src, int32_t srcsiz
       // Reset bstarts and embed dict in the output buffer.
       context->bstarts = (int32_t*)(context->dest + context->header_overhead);
       context->output_bytes = context->header_overhead + (int32_t)sizeof(int32_t) * context->nblocks;
+      size_t dict_size_field_end;
+      size_t dict_embed_end;
+      if (context->destsize < 0 ||
+          !checked_add_size((size_t)context->output_bytes, sizeof(int32_t), &dict_size_field_end) ||
+          !checked_add_size(dict_size_field_end, (size_t)dict_actual_size, &dict_embed_end) ||
+          dict_embed_end > (size_t)context->destsize) {
+        BLOSC_TRACE_ERROR("Not enough output space to embed dictionary in chunk.");
+        return BLOSC2_ERROR_WRITE_BUFFER;
+      }
       /* Write dict size */
       _sw32(context->dest + context->output_bytes, dict_actual_size);
       context->output_bytes += (int32_t)sizeof(int32_t);
